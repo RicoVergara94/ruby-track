@@ -10,6 +10,12 @@ app.use(express.json()); // Parse JSON requests
 // Sample route
 app.get("/", (req, res) => {
   res.send("Backend is running!");
+  console.log("here");
+});
+
+app.post("/login", (req, res) => {
+  console.log("request recieved");
+  res.send(JSON.stringify(req.body));
 });
 
 app.listen(port, () => {
