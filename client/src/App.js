@@ -1,25 +1,19 @@
-import logo from "./logo.svg";
-import "./App.css";
-
-import Welcome from "./components/Welcome";
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import AuthForm from './components/AuthForm';
+import Dashboard from './components/Dashboard';
+import { AuthProvider } from './context/AuthContext';
 
 function App() {
-  const initialRequest = async () => {
-    try {
-      const res = await fetch("http://localhost:4000/");
-      const data = await res.text();
-      console.log(data);
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  initialRequest();
-
   return (
-    <div className="App">
-      <Welcome></Welcome>
-    </div>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<AuthForm />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 

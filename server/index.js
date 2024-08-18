@@ -1,74 +1,74 @@
-const express = require("express");
-const { Client, Pool } = require("pg");
-var bcrypt = require("bcryptjs");
-const cors = require("cors");
+const express = require('express');
+const { Pool } = require('pg');
+const cors = require('cors');
 const app = express();
-const port = 4000;
-require("dotenv").config();
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+const port = process.env.PORT || 4000;
 
-// Middleware
-app.use(cors()); // Allow requests from React frontend
-app.use(express.json()); // Parse JSON requests
+require('dotenv').config();
 
-// database
-const client = new Client({
-  user: "oscarvergara",
-  host: "localhost", // Container IP address
-  database: "mydatabase",
-  password: "hacker-headstarter",
-  port: 5432,
-  // user: process.env.DB_USER,
-  // host: process.env.DB_HOST,
-  // database: process.env.DB_DATABASE,
-  // password: process.env.DB_PASSWORD,
-  // port: process.env.DB_PORT,
-});
-client
-  .connect()
-  .then(() => console.log("Connected to the database"))
-  .catch((err) => console.error("Connection error", err.stack));
+app.use(cors());
+app.use(express.json());
 
-// Sample route
-app.get("/", (req, res) => {
-  res.send("Backend is running!");
-  console.log("here");
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_DATABASE,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
 });
 
-app.post("/login", (req, res) => {
-  res.send(JSON.stringify(req.body));
-  const username = req.body.username;
-  const password = req.body.password;
-  console.log(`username: ${username}`);
-  console.log(`password: ${password}`);
+pool.connect()
+  .then(() => console.log("Connected to PostgreSQL database"))
+  .catch((err) => console.error("Failed to connect to the database", err));
 
-  const salt = bcrypt.genSaltSync(10);
-  const hash = bcrypt.hashSync(password, salt);
-  console.log(hash);
-  const insertUser = async (username, hashedPassword) => {
-    try {
-      // Define the SQL query
-      const query =
-        "INSERT INTO users (username, hashed_password) VALUES ($1, $2) RETURNING *";
+io.on('connection', (socket) => {
+  console.log('A user connected');
 
-      // Execute the query with parameters
-      const res = await client.query(query, [username, hashedPassword]);
+  socket.on('disconnect', () => {
+    console.log('A user disconnected');
+  });
+});
 
-      // Log the inserted user
-      console.log("Inserted user:", res.rows[0]);
-    } catch (err) {
-      console.error("Error inserting user:", err);
-    } finally {
-      // Close the database connection
-      // await client.end();
-    }
-  };
-
-  if (bcrypt.compareSync(password, hash)) {
-    console.log("here");
-    insertUser(username, hash);
+// Fetch all transactions
+app.get('/api/transactions', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM transactions ORDER BY date DESC');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    res.status(500).json({ error: 'Failed to fetch transactions' });
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+// Add a new transaction
+app.post('/api/transaction', async (req, res) => {
+  const { description, amount, date, category } = req.body;
+  try {
+    const result = await pool.query(
+      'INSERT INTO transactions (description, amount, date, category) VALUES ($1, $2, $3, $4) RETURNING *',
+      [description, amount, date, category]
+    );
+    const newTransaction = result.rows[0];
+    io.emit('newTransaction', newTransaction);
+    res.status(201).json(newTransaction);
+  } catch (error) {
+    console.error('Error adding transaction:', error);
+    res.status(500).json({ error: 'Failed to add transaction' });
+  }
 });
+
+// Fetch budget information
+app.get('/api/budget', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM budget');
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching budget:', error);
+    res.status(500).json({ error: 'Failed to fetch budget' });
+  }
+});
+
+// Start the server with WebSocket
+http.listen(port, () => console.log(`Server is running on http://localhost:${port}`));
