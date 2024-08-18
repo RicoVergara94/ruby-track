@@ -1,7 +1,19 @@
-import logo from './logo.svg';
-import './App.css';
+import logo from "./logo.svg";
+import "./App.css";
 
 function App() {
+  const initialRequest = async () => {
+    try {
+      const res = await fetch("http://localhost:4000/");
+      const data = await res.text();
+      console.log(data);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  initialRequest();
+
   return (
     <div className="App">
       <header className="App-header">
